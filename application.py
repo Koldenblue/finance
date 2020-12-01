@@ -106,7 +106,6 @@ def buy():
 
         # if user can afford stock, add to purchases table. Get date of purchase as well.
         t1 = datetime.now()
-        print(t1)
         db.execute('INSERT INTO purchases (username, symbol, stock_price, shares_purchased, total_price, date)'
                 + ' values (:username, :symbol, :stock_price, :shares_purchased, :total_price, :date);',
                     username=session['username'], symbol=symbol.upper(), stock_price=usd(price), shares_purchased=shares, total_price=usd(total_price), date=t1)
@@ -122,7 +121,7 @@ def buy():
 @login_required
 def history():
     """Show history of transactions"""
-    rows = db.execute('SELECT symbol, stock_price, shares_purchased, total_price FROM purchases WHERE username = :username', username=session['username'])
+    rows = db.execute('SELECT symbol, stock_price, shares_purchased, total_price, date FROM purchases WHERE username = :username', username=session['username'])
     return render_template('history.html', rows=rows)
 
 
@@ -248,23 +247,32 @@ def sell():
         # if api call is invalid, will return None
         if quote == None:
             return apology('That symbol is invalid!', 403)
-
         price = quote['price']
-        # Next look up how many shares the user has
-        user_shares = db.execute("SELECT cash FROM users WHERE id = :id", id=session["user_id"])
-        total_price = price * shares
-        cash = cash[0]['cash']
-        if cash < total_price:
-            return apology(f'The total price is {usd(total_price)}. You only have {usd(cash)}!')
 
-        # if user can afford stock, add to purchases table. Get date of purchase as well.
+        # Next look up how many shares the user has
+        user_shares = db.execute('SELECT sum(shares_purchased)'
+                    + ' FROM purchases WHERE username = :username AND symbol = :symbol'
+                    + ' GROUP BY symbol', username=session['username'], symbol=symbol)
+        if user_shares == []:
+            return apology(f"You do not own shares of {symbol}!")
+        user_shares = user_shares[0]['sum(shares_purchased)']
+        # Check to see if the user has enough shares to sell
+        if shares > user_shares:
+            return apology(f"You may not sell that much, you only own {user_shares} shares of that stock!")
+
+        # if so, calculate the total selling price. insert negative numbers into table for shares sold.
+        total_price = price * -shares
+
+        # Get date of purchase as well.
         t1 = datetime.now()
-        print(t1)
+
         db.execute('INSERT INTO purchases (username, symbol, stock_price, shares_purchased, total_price, date)'
                 + ' values (:username, :symbol, :stock_price, :shares_purchased, :total_price, :date);',
-                    username=session['username'], symbol=symbol.upper(), stock_price=usd(price), shares_purchased=shares, total_price=usd(total_price), date=t1)
+                    username=session['username'], symbol=symbol.upper(), stock_price=usd(price), shares_purchased= -shares, total_price=usd(total_price), date=t1)
 
-        # next subtract price from user's cash
+        # next subtract price from user's cash. Since total_price is negative, this will add to cash.
+        cash = db.execute("SELECT cash FROM users WHERE id = :id", id=session["user_id"])
+        cash = cash[0]['cash']
         db.execute('UPDATE users SET cash = :new_cash WHERE username = :username',
                     new_cash=cash - total_price, username=session['username'])
         # finally, redirect to index

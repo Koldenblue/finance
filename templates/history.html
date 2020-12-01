@@ -12,8 +12,9 @@
         <tr>
             <td class='table-title'>Stock Symbol</td>
             <td class='table-title'>Stock Price</td>
-            <td class='table-title'>No. Shares Purchased</td>
+            <td class='table-title'>No. Shares Bought or Sold</td>
             <td class='table-title'>Total Price</td>
+            <td class='table-title'>Date of Transaction</td>
         </tr>
         {% for row in rows %}
         <tr>
@@ -21,6 +22,7 @@
             <td>{{ row.stock_price }}</td>
             <td>{{ row.shares_purchased }}</td>
             <td>{{ row.total_price }}</td>
+            <td>{{ row.date }}</td>
         </tr>
         {% endfor %}
 
