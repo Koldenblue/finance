@@ -1,0 +1,29 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Transaction History
+{% endblock %}
+
+{% block main %}
+    {% if rows == [] %}
+        <div>No purchase history yet. $10,000.00 available starting cash.</div>
+    {% else %}
+        <table>
+        <tr>
+            <td class='table-title'>Stock Symbol</td>
+            <td class='table-title'>Stock Price</td>
+            <td class='table-title'>No. Shares Purchased</td>
+            <td class='table-title'>Total Price</td>
+        </tr>
+        {% for row in rows %}
+        <tr>
+            <td>{{ row.symbol }}</td>
+            <td>{{ row.stock_price }}</td>
+            <td>{{ row.shares_purchased }}</td>
+            <td>{{ row.total_price }}</td>
+        </tr>
+        {% endfor %}
+
+        </table>
+    {% endif %}
+{% endblock %}

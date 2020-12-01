@@ -1,0 +1,12 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Stock Quote Lookup
+{% endblock %}
+
+{% block main %}
+    <section>
+        <p>You have looked up: {{ quote.name }}, with the symbol {{ quote.symbol }}</p>
+        <p>The stock price is: {{ quote.price }}</p>
+    </section>
+{% endblock %}
