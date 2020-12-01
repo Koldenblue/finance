@@ -6,6 +6,7 @@ from flask_session import Session
 from tempfile import mkdtemp
 from werkzeug.exceptions import default_exceptions, HTTPException, InternalServerError
 from werkzeug.security import check_password_hash, generate_password_hash
+from datetime import datetime
 
 from helpers import apology, login_required, lookup, usd
 
@@ -45,9 +46,28 @@ if not os.environ.get("API_KEY"):
 @login_required
 def index():
     """Show portfolio of stocks"""
-    # need to lookup each stock user owns
-    rows = db.execute('SELECT symbol, stock_price, shares_purchased, total_price FROM purchases WHERE username = :username', username=session['username'])
-    return render_template('history.html', rows=rows)
+    # need to lookup each stock user owns. Group by stock name
+    rows = db.execute('SELECT symbol, sum(shares_purchased)'
+                    + ' FROM purchases WHERE username = :username'
+                    + ' GROUP BY symbol', username=session['username'])
+
+    # Keep a running total to sum up all stock holdings
+    grand_total = 0
+    for row in rows:
+        # Get the current quote for each stock.
+        quote = lookup(row['symbol'])
+        current_price = quote['price']
+        row['current_price'] = usd(current_price)
+        # Get the total current value of the holdings. Add to grand total
+        total_value = current_price * row['sum(shares_purchased)']
+        row['total_value'] = usd(total_value)
+        grand_total += total_value
+
+
+    # Finally, get the user's current cash balance.
+    current_cash = db.execute("SELECT cash FROM users WHERE username = :username", username=session['username'])
+    current_cash = usd(current_cash[0]['cash'])
+    return render_template('index.html', rows=rows, grand_total = usd(grand_total), current_cash=current_cash)
 
 
 
@@ -83,11 +103,20 @@ def buy():
         cash = cash[0]['cash']
         if cash < total_price:
             return apology(f'The total price is {usd(total_price)}. You only have {usd(cash)}!')
-        # if user can afford stock, add to purchases table
-        db.execute('INSERT INTO purchases (username, symbol, stock_price, shares_purchased, total_price) values (:username, :symbol, :stock_price, :shares_purchased, :total_price);',
-                    username=session['username'], symbol=symbol.upper(), stock_price=usd(price), shares_purchased=shares, total_price=usd(total_price))
+
+        # if user can afford stock, add to purchases table. Get date of purchase as well.
+        t1 = datetime.now()
+        print(t1)
+        db.execute('INSERT INTO purchases (username, symbol, stock_price, shares_purchased, total_price, date)'
+                + ' values (:username, :symbol, :stock_price, :shares_purchased, :total_price, :date);',
+                    username=session['username'], symbol=symbol.upper(), stock_price=usd(price), shares_purchased=shares, total_price=usd(total_price), date=t1)
+
+        # next subtract price from user's cash
+        db.execute('UPDATE users SET cash = :new_cash WHERE username = :username',
+                    new_cash=cash - total_price, username=session['username'])
         # finally, redirect to index
         return redirect('/')
+
 
 @app.route("/history")
 @login_required
@@ -163,6 +192,7 @@ def quote():
         quote['price'] = usd(quote['price'])
         return render_template("quoted.html", quote=quote)
 
+
 @app.route("/register", methods=["GET", "POST"])
 def register():
     """Register user"""
@@ -189,11 +219,58 @@ def register():
         db.execute("INSERT INTO users (username, hash) VALUES (:username, :hash)", username=username, hash=password)
         return render_template('/login.html')
 
+
 @app.route("/sell", methods=["GET", "POST"])
 @login_required
 def sell():
     """Sell shares of stock"""
-    return apology("TODO")
+    if request.method == "GET":
+        symbols = db.execute('SELECT symbol'
+                    + ' FROM purchases WHERE username = :username'
+                    + ' GROUP BY symbol', username=session['username'])
+        print(symbols)
+        return render_template("/sell.html", symbols=symbols)
+    # for post, get form info.
+    else:
+        symbol = request.form.get('symbol')
+        shares = request.form.get('shares')
+
+        # First make sure shares are a positive integer
+        try:
+            shares = int(shares)
+        except(ValueError):
+            return apology("Only positive integer share numbers accepted.", 403)
+        if not isinstance(int(shares), int) or int(shares) <= 0:
+            return apology("Only positive integer share numbers may be entered.", 403)
+
+        # Next, find price of stock
+        quote = lookup(symbol)
+        # if api call is invalid, will return None
+        if quote == None:
+            return apology('That symbol is invalid!', 403)
+
+        price = quote['price']
+        # Next look up how many shares the user has
+        user_shares = db.execute("SELECT cash FROM users WHERE id = :id", id=session["user_id"])
+        total_price = price * shares
+        cash = cash[0]['cash']
+        if cash < total_price:
+            return apology(f'The total price is {usd(total_price)}. You only have {usd(cash)}!')
+
+        # if user can afford stock, add to purchases table. Get date of purchase as well.
+        t1 = datetime.now()
+        print(t1)
+        db.execute('INSERT INTO purchases (username, symbol, stock_price, shares_purchased, total_price, date)'
+                + ' values (:username, :symbol, :stock_price, :shares_purchased, :total_price, :date);',
+                    username=session['username'], symbol=symbol.upper(), stock_price=usd(price), shares_purchased=shares, total_price=usd(total_price), date=t1)
+
+        # next subtract price from user's cash
+        db.execute('UPDATE users SET cash = :new_cash WHERE username = :username',
+                    new_cash=cash - total_price, username=session['username'])
+        # finally, redirect to index
+        return redirect('/')
+
+
 
 
 def errorhandler(e):

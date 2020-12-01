@@ -1,0 +1,31 @@
+{% extends "layout.html" %}
+
+{% block title %}
+    Sell Stocks
+{% endblock %}
+
+{% block main %}
+
+    {% if symbols == [] %}
+        <h1>No stocks owned!<h1>
+    {% else %}
+
+    <form action="/sell" method="post">
+        <p>What is the symbol of the stock you would like to sell?</p>
+        <div class="form-group">
+            <label for="sell-stocks">Stock Symbol</label>
+            <select name='symbol' class="form-control" id="sell-stocks">
+              {% for symbol in symbols %}
+                  <option>{{ symbol['symbol'] }}</option>
+              {% endfor %}
+            </select>
+        </div>
+        
+        <p>How many shares would you like to sell?</p>
+         <div class="form-group">
+            <input autocomplete="off" autofocus class="form-control" name="shares" placeholder="Shares to buy" type="text">
+        </div>
+        <button class="btn btn-primary" type="submit">Sell Stock</button>
+    </form>
+    {% endif %}
+{% endblock %}
