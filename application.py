@@ -102,7 +102,7 @@ def buy():
         total_price = price * shares
         cash = cash[0]['cash']
         if cash < total_price:
-            return apology(f'The total price is {usd(total_price)}. You only have {usd(cash)}!')
+            return apology(f'The total price is {usd(total_price)}. You only have {usd(cash)}!', 403)
 
         # if user can afford stock, add to purchases table. Get date of purchase as well.
         t1 = datetime.now()
@@ -205,7 +205,7 @@ def register():
         elif not request.form.get("password"):
             return apology("must provide password", 403)
         elif request.form.get('password-confirm') != request.form.get('password'):
-            return apology("must confirm password")
+            return apology("must confirm password", 403)
         else:
             username = request.form.get('username')
             password = generate_password_hash(request.form.get('password'))
@@ -258,7 +258,7 @@ def sell():
         user_shares = user_shares[0]['sum(shares_purchased)']
         # Check to see if the user has enough shares to sell
         if shares > user_shares:
-            return apology(f"You may not sell that much, you only own {user_shares} shares of that stock!")
+            return apology(f"You may not sell that much, you only own {user_shares} shares of that stock!", 403)
 
         # if so, calculate the total selling price. insert negative numbers into table for shares sold.
         total_price = price * -shares
@@ -278,8 +278,21 @@ def sell():
         # finally, redirect to index
         return redirect('/')
 
+@app.route("/add", methods=["GET", "POST"])
+@login_required
+def add():
+    '''allows user to add cash to account.'''
+    if request.method == 'GET':
+        return render_template('add.html')
+    else:
+        new_cash = float(request.form.get('add'))
+        print(new_cash)
+        cash = db.execute("SELECT cash FROM users WHERE id = :id", id=session["user_id"])
+        cash = float(cash[0]['cash'])
 
-
+        db.execute('UPDATE users SET cash = :new_cash WHERE username = :username',
+                    new_cash=cash + new_cash, username=session['username'])
+        return redirect('/')
 
 def errorhandler(e):
     """Handle error"""

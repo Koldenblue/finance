@@ -57,3 +57,11 @@ td {
 .table-title {
     background-color: honeydew;
 }
+
+#dollar-sign {
+    margin-right: 0.25em;
+}
+
+.jumbotron-fluid {
+    background-color: honeydew;
+}
