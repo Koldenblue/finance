@@ -57,21 +57,27 @@ def index():
         rows = rows.all()
         # Keep a running total to sum up all stock holdings
         grand_total = 0
+        # Create a new array to contain the SQL values, so that the values may be converted to a dictionary and keys added
+        table_rows = []
         for row in rows:
             # Get the current quote for each stock.
             quote = lookup(row['symbol'])
             current_price = quote['price']
-            row['current_price'] = usd(current_price)
+            row_dict = {}
+            row_dict['symbol'] = row['symbol']
+            row_dict['current_price'] = usd(current_price)
+            row_dict['sum(shares_purchased)'] = row['sum(shares_purchased)']
             # Get the total current value of the holdings. Add to grand total
             total_value = current_price * row['sum(shares_purchased)']
-            row['total_value'] = usd(total_value)
+            row_dict['total_value'] = usd(total_value)
             grand_total += total_value
+            table_rows.append(row_dict)
 
         # Finally, get the user's current cash balance.
         current_cash = conn.execute(text("SELECT cash FROM users WHERE username = :username"), [ { 'username': session['username'] } ] )
         current_cash = current_cash.all()
         current_cash = usd(current_cash[0]['cash'])
-        return render_template('index.html', rows=rows, grand_total = usd(grand_total), current_cash=current_cash)
+        return render_template('index.html', rows=table_rows, grand_total = usd(grand_total), current_cash=current_cash)
 
 
 
@@ -274,7 +280,7 @@ def sell():
         with engine.connect() as conn:
             user_shares = conn.execute(text('SELECT sum(shares_purchased)'
                         + ' FROM purchases WHERE username = :username AND symbol = :symbol'
-                        + ' GROUP BY symbol'), [ { 'username': session['username'], symbol: symbol } ] )
+                        + ' GROUP BY symbol'), [ { 'username': session['username'], 'symbol': symbol } ] )
             user_shares = user_shares.all()
             if user_shares == []:
                 return apology(f"You do not own shares of {symbol}!")
@@ -293,7 +299,7 @@ def sell():
             conn.execute(statement)
             conn.commit()
             # next subtract price from user's cash. Since total_price is negative, this will add to cash.
-            cash = conn.execute(text("SELECT cash FROM users WHERE id = :id"), [ { id: session["user_id"] } ] )
+            cash = conn.execute(text("SELECT cash FROM users WHERE id = :id"), [ { 'id': session["user_id"] } ] )
             cash = cash.all()
             cash = cash[0]['cash']
             statement = text('UPDATE users SET cash = :new_cash WHERE username = :username').bindparams(new_cash=cash - total_price, username=session['username'])
@@ -312,7 +318,7 @@ def add():
         new_cash = float(request.form.get('add'))
         print(new_cash)
         with engine.connect() as conn:
-            cash = conn.execute(text("SELECT cash FROM users WHERE id = :id"), [ { id: session["user_id"] } ] )
+            cash = conn.execute(text("SELECT cash FROM users WHERE id = :id"), [ { 'id': session["user_id"] } ] )
             cash = cash.all()
             cash = float(cash[0]['cash'])
 

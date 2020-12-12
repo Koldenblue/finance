@@ -64,4 +64,6 @@ td {
 
 .jumbotron-fluid {
     background-color: honeydew;
+    border: 2px rgb(104, 19, 112) groove;
+    border-radius: 5px;
 }
