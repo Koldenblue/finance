@@ -7,3 +7,4 @@ Develop/**
 develop/**
 *.code-workspace
 .env
+cs50-terminal.py
