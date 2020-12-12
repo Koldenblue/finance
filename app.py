@@ -1,3 +1,4 @@
+import settings
 import os
 
 from sqlalchemy import create_engine, text
@@ -27,7 +28,7 @@ def after_request(response):
     return response
 
 # Custom filter
-app.jinja_env.filters["usd"] = usd
+# app.jinja_env.filters["usd"] = usd
 
 # Configure session to use filesystem (instead of signed cookies)
 app.config["SESSION_FILE_DIR"] = mkdtemp()
@@ -39,7 +40,7 @@ engine = create_engine("sqlite+pysqlite:///finance.db", echo=True, future=True)
 
 # Make sure API key is set
 if not os.environ.get("API_KEY"):
-    raise RuntimeError("API_KEY not set")
+    raise RuntimeError("API_KEY not set. Set in terminal, or see readme for installing and using python-dotenv.")
 
 @app.route("/")
 #decorator defined in helpers.py
@@ -52,7 +53,7 @@ def index():
 
         rows = conn.execute(text('SELECT symbol, sum(shares_purchased)'
                         + ' FROM purchases WHERE username = :username'
-                        + ' GROUP BY symbol'), [ { username: session['username'] } ] )
+                        + ' GROUP BY symbol'), [ { 'username': session['username'] } ] )
         rows = rows.all()
         # Keep a running total to sum up all stock holdings
         grand_total = 0
@@ -67,7 +68,7 @@ def index():
             grand_total += total_value
 
         # Finally, get the user's current cash balance.
-        current_cash = conn.execute(text("SELECT cash FROM users WHERE username = :username"), [ { username: session['username'] } ] )
+        current_cash = conn.execute(text("SELECT cash FROM users WHERE username = :username"), [ { 'username': session['username'] } ] )
         current_cash = current_cash.all()
         current_cash = usd(current_cash[0]['cash'])
         return render_template('index.html', rows=rows, grand_total = usd(grand_total), current_cash=current_cash)
@@ -195,6 +196,7 @@ def quote():
         return render_template('/quote.html')
     else:
         symbol = request.form.get('symbol')
+        print(symbol)
         # use lookup and usd functions from helpers.py
         quote = lookup(symbol)
         # if api call is invalid, will return None
@@ -245,7 +247,7 @@ def sell():
         with engine.connect() as conn:
             symbols = conn.execute(text('SELECT symbol'
                         + ' FROM purchases WHERE username = :username'
-                        + ' GROUP BY symbol'), [ { username: session['username'] } ])
+                        + ' GROUP BY symbol'), [ { 'username': session['username'] } ])
             symbols = symbols.all()
             return render_template("/sell.html", symbols=symbols)
     # for post, get form info.
@@ -272,7 +274,7 @@ def sell():
         with engine.connect() as conn:
             user_shares = conn.execute(text('SELECT sum(shares_purchased)'
                         + ' FROM purchases WHERE username = :username AND symbol = :symbol'
-                        + ' GROUP BY symbol'), [ { username: session['username'], symbol: symbol } ] )
+                        + ' GROUP BY symbol'), [ { 'username': session['username'], symbol: symbol } ] )
             user_shares = user_shares.all()
             if user_shares == []:
                 return apology(f"You do not own shares of {symbol}!")
